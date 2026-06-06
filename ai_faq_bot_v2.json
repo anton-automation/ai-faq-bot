@@ -1,0 +1,407 @@
+{
+  "name": "ai_faq_bot_v2",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        -336
+      ],
+      "id": "5e5aea8e-16c4-4543-937e-8943ccbc20f7",
+      "name": "Telegram Trigger",
+      "webhookId": "0e9d611a-e78b-4678-a92b-01ffb73b234d",
+      "credentials": {
+        "telegramApi": {
+          "id": "yU5QUwz2mLVivF3J",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1EdoBw6DA8Z7ZS5GjUZjQC6Yhqlh7noskHEvxFt-A7n8",
+          "mode": "list",
+          "cachedResultName": "faq-knowledge-base",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EdoBw6DA8Z7ZS5GjUZjQC6Yhqlh7noskHEvxFt-A7n8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EdoBw6DA8Z7ZS5GjUZjQC6Yhqlh7noskHEvxFt-A7n8/edit#gid=0"
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -800,
+        -336
+      ],
+      "id": "0e638091-c34f-42ea-a514-f3083d70172e",
+      "name": "Read_FAQ",
+      "credentials": {
+        "googleApi": {
+          "id": "sXsHhiMSlHoNaa17",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Ты — помощник службы поддержки.\nЕсли ответ есть в базе — ответь дружелюбно своими словами.\nЕсли ответа нет — ответь строго одним словом: UNKNOWN\n\nБаза знаний:\n{{ $('Prepare_FAQ').item.json.faq_text }}"
+            },
+            {
+              "content": "={{ $('Telegram Trigger').item.json.message.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -352,
+        -336
+      ],
+      "id": "b2703f90-7c51-47ea-b547-55b989b4381e",
+      "name": "FAQ_AI",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "Z3KmzFXtRkNN3guV",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst faq = rows.map(r => `Q: ${r.json.question}\\nA: ${r.json.answer}`).join('\\n\\n');\nreturn [{ json: { faq_text: faq } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        -336
+      ],
+      "id": "e11b4d61-8133-42b3-bb3c-7902881440c2",
+      "name": "Prepare_FAQ"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bf2ce92e-09a2-47f9-b265-5cce5f168d8b",
+              "leftValue": "={{ $json.output[0].content[0].text }}",
+              "rightValue": "UNKNOWN",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        96,
+        -352
+      ],
+      "id": "0bdd8c4a-7142-4913-b205-12dde12b907f",
+      "name": "Check_answer"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('FAQ_AI').item.json.output[0].content[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        -448
+      ],
+      "id": "f45bdeea-4458-4863-b8b2-cda3deb80b2e",
+      "name": "Telegram_answer",
+      "webhookId": "0b3777ef-4999-4649-8ed0-f1a951b19159",
+      "credentials": {
+        "telegramApi": {
+          "id": "yU5QUwz2mLVivF3J",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "Этот вопрос я передам менеджеру. Он свяжется с вами в ближайшее время.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        -256
+      ],
+      "id": "c546d953-b40b-4316-8b3e-136c7f2c33fe",
+      "name": "Telegram_escalate",
+      "webhookId": "0b3777ef-4999-4649-8ed0-f1a951b19159",
+      "credentials": {
+        "telegramApi": {
+          "id": "yU5QUwz2mLVivF3J",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1q-xVdznnr4t0nq9kdB4FYNy9idlTNk07pd_FAt80PRw",
+          "mode": "list",
+          "cachedResultName": "faq-unknown-questions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1q-xVdznnr4t0nq9kdB4FYNy9idlTNk07pd_FAt80PRw/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1q-xVdznnr4t0nq9kdB4FYNy9idlTNk07pd_FAt80PRw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ new Date().toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'}) }}",
+            "question": "={{ $('Telegram Trigger').item.json.message.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question",
+              "displayName": "question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        544,
+        -256
+      ],
+      "id": "0f723a0e-8cc4-4ed8-8a0a-575af5fa70c5",
+      "name": "Log_unknown",
+      "credentials": {
+        "googleApi": {
+          "id": "sXsHhiMSlHoNaa17",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "GPT-3.5-TURBO"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Ты — помощник службы поддержки.\nЕсли ответ есть в базе — ответь дружелюбно своими словами.\nЕсли ответа нет — ответь строго одним словом: UNKNOWN\n\nБаза знаний:\n{{ $('Prepare_FAQ').item.json.faq_text }}"
+            },
+            {
+              "content": "={{ $('Telegram Trigger').item.json.message.text }}"
+            }
+          ]
+        },
+        "simplify": false,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -240,
+        -96
+      ],
+      "id": "c2084722-dfa9-45f1-a43c-3e33c8593b2f",
+      "name": "Fallback_AI",
+      "credentials": {
+        "openAiApi": {
+          "id": "Z3KmzFXtRkNN3guV",
+          "name": "OpenAI account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read_FAQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read_FAQ": {
+      "main": [
+        [
+          {
+            "node": "Prepare_FAQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare_FAQ": {
+      "main": [
+        [
+          {
+            "node": "FAQ_AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FAQ_AI": {
+      "main": [
+        [
+          {
+            "node": "Check_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback_AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_answer": {
+      "main": [
+        [
+          {
+            "node": "Telegram_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram_escalate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_escalate": {
+      "main": [
+        [
+          {
+            "node": "Log_unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback_AI": {
+      "main": [
+        [
+          {
+            "node": "Check_answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "250493b4-af1a-427d-8b56-10d68286a75e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e47ed2702af3c14cb76140dc624f0bb3a3113f4a0906d602a2a3f30cee2a9364"
+  },
+  "id": "PtDM8kjAAQW7m1ue",
+  "tags": []
+}
